@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+.env
+mlflow.db
+mlruns/
+*.pkl
+grafana-storage/
+dataset/WELFake_Dataset.csv
+dataset/cleaned.csv
