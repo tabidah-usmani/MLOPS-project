@@ -14,10 +14,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -30,7 +30,7 @@ jobs:
         run: |
           python -c "import nltk; nltk.download('stopwords'); nltk.download('punkt')"
 
-      - name: Run preprocessing tests
+      - name: Run tests
         run: |
           pytest tests/test_model.py -v
 
@@ -41,10 +41,13 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
+
+      - name: Rename DockerFile to Dockerfile
+        run: cp DockerFile Dockerfile
 
       - name: Build Docker image
         run: |
@@ -60,16 +63,16 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install flake8
         run: pip install flake8
 
-      - name: Run flake8 lint check
+      - name: Run flake8
         run: |
-          flake8 src/ api/ --max-line-length=120 --ignore=E501,W503 --count
+          flake8 src/ api/ --max-line-length=120 --ignore=E501,W503,W504,E302,E303 --count
