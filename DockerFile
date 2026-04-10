@@ -9,7 +9,8 @@ RUN python -c "import nltk; nltk.download('stopwords'); nltk.download('punkt')"
 
 COPY src/ ./src/
 COPY api/ ./api/
-COPY models/ ./models/
+
+RUN mkdir -p models
 
 ENV MODEL_PATH=models/model.pkl
 ENV PORT=5000
