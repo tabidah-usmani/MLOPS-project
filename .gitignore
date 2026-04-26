@@ -8,3 +8,49 @@ mlruns/
 grafana-storage/
 dataset/WELFake_Dataset.csv
 dataset/cleaned.csv
+
+
+
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# MLflow (CORRUPTED DB - DON'T PUSH)
+mlflow.db
+*.db
+mlruns/.trash/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Large data (optional - uncomment if data is large)
+dataset/*.csv
+data/*.csv
+models/*.pkl
+models/*.joblib

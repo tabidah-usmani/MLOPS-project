@@ -9,6 +9,8 @@ from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_sc
 from sklearn.pipeline import Pipeline
 import joblib
 import os
+import os
+os.environ["MLFLOW_TRACKING_URI"] = "file:./mlruns"
 
 def train(data_path: str = "dataset/cleaned.csv", model_type: str = "logistic"):
 
