@@ -20,12 +20,12 @@ print(f"Model loaded from {MODEL_PATH}")
 # ─────────────────────────────────────────
 # Drift Detection Configuration
 # ─────────────────────────────────────────
-DRIFT_THRESHOLD = 0.70      # alert if >70% predictions are same label
-WINDOW_SIZE     = 50        # sliding window of last N predictions
-MIN_WORD_COUNT  = 30        # minimum words for reliable prediction
+DRIFT_THRESHOLD = 0.70  # alert if >70% predictions are same label
+WINDOW_SIZE = 50  # sliding window of last N predictions
+MIN_WORD_COUNT = 30  # minimum words for reliable prediction
 
 prediction_window = deque(maxlen=WINDOW_SIZE)
-drift_detected    = False
+drift_detected = False
 
 
 def check_prediction_drift(label):
@@ -101,8 +101,8 @@ SHORT_TEXT_COUNT = Counter(
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({
-        "status":  "healthy",
-        "model":   MODEL_PATH,
+        "status": "healthy",
+        "model": MODEL_PATH,
         "version": "1.2"
     }), 200
 
@@ -131,18 +131,18 @@ def predict():
             SHORT_TEXT_COUNT.inc()
             REQUEST_COUNT.labels('POST', '/predict', '200').inc()
             return jsonify({
-                "warning":             "Text too short for reliable prediction",
-                "word_count":          word_count,
+                "warning": "Text too short for reliable prediction",
+                "word_count": word_count,
                 "minimum_recommended": MIN_WORD_COUNT,
-                "tip":                 f"Send at least {MIN_WORD_COUNT} words for accurate results"
+                "tip": f"Send at least {MIN_WORD_COUNT} words for accurate results"
             }), 200
 
         # ── Predict ────────────────────────────────
-        cleaned       = clean_text(raw_text)
-        prediction    = model.predict([cleaned])[0]
+        cleaned = clean_text(raw_text)
+        prediction = model.predict([cleaned])[0]
         probabilities = model.predict_proba([cleaned])[0]
 
-        label      = "REAL" if prediction == 1 else "FAKE"
+        label = "REAL" if prediction == 1 else "FAKE"
         confidence = float(max(probabilities))
 
         # ── Prometheus: prediction metrics ─────────
@@ -164,11 +164,11 @@ def predict():
             REAL_RATIO_GAUGE.set(round(real_ratio, 4))
 
         return jsonify({
-            "label":          label,
-            "confidence":     round(confidence, 4),
-            "latency_ms":     round(latency * 1000, 2),
-            "word_count":     word_count,
-            "text_preview":   raw_text[:100] + "..." if len(raw_text) > 100 else raw_text,
+            "label": label,
+            "confidence": round(confidence, 4),
+            "latency_ms": round(latency * 1000, 2),
+            "word_count": word_count,
+            "text_preview": raw_text[:100] + "..." if len(raw_text) > 100 else raw_text,
             "drift_detected": is_drift
         }), 200
 
@@ -185,29 +185,29 @@ def drift_status():
 
     if total == 0:
         return jsonify({
-            "drift_detected":  False,
-            "fake_ratio":      0.0,
-            "real_ratio":      0.0,
-            "fake_count":      0,
-            "real_count":      0,
-            "window_size":     0,
+            "drift_detected": False,
+            "fake_ratio": 0.0,
+            "real_ratio": 0.0,
+            "fake_count": 0,
+            "real_count": 0,
+            "window_size": 0,
             "window_capacity": WINDOW_SIZE,
-            "threshold":       DRIFT_THRESHOLD,
-            "status":          "Insufficient data — need at least 1 prediction"
+            "threshold": DRIFT_THRESHOLD,
+            "status": "Insufficient data — need at least 1 prediction"
         }), 200
 
     fake_ratio = round(window_list.count("FAKE") / total, 4)
     real_ratio = round(window_list.count("REAL") / total, 4)
 
     return jsonify({
-        "drift_detected":  drift_detected,
-        "fake_ratio":      fake_ratio,
-        "real_ratio":      real_ratio,
-        "fake_count":      window_list.count("FAKE"),
-        "real_count":      window_list.count("REAL"),
-        "window_size":     total,
+        "drift_detected": drift_detected,
+        "fake_ratio": fake_ratio,
+        "real_ratio": real_ratio,
+        "fake_count": window_list.count("FAKE"),
+        "real_count": window_list.count("REAL"),
+        "window_size": total,
         "window_capacity": WINDOW_SIZE,
-        "threshold":       DRIFT_THRESHOLD,
+        "threshold": DRIFT_THRESHOLD,
         "status": (
             "DRIFT ALERT — prediction distribution has shifted"
             if drift_detected else
@@ -229,8 +229,8 @@ def reset_drift():
     FAKE_RATIO_GAUGE.set(0)
     REAL_RATIO_GAUGE.set(0)
     return jsonify({
-        "status":         "Drift window reset successfully",
-        "window_size":    0,
+        "status": "Drift window reset successfully",
+        "window_size": 0,
         "drift_detected": False
     }), 200
 
@@ -243,14 +243,14 @@ def metrics():
 @app.route('/', methods=['GET'])
 def index():
     return jsonify({
-        "name":    "Fake News Detector API",
+        "name": "Fake News Detector API",
         "version": "1.2",
         "endpoints": {
             "POST /predict": "Send news text, get FAKE or REAL (min 30 words recommended)",
-            "GET  /health":  "Check API health",
+            "GET  /health": "Check API health",
             "GET  /metrics": "Prometheus metrics",
-            "GET  /drift":   "Check prediction drift status",
-            "POST /reset":   "Reset drift detection window (for testing)"
+            "GET  /drift": "Check prediction drift status",
+            "POST /reset": "Reset drift detection window (for testing)"
         }
     }), 200
 
