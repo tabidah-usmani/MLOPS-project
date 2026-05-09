@@ -1,0 +1,51 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: 'default-receiver'  # ← REQUIRED: default receiver for root route
+  group_by: ['alertname', 'severity']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  
+  routes:
+    # Route for drift alerts - trigger retraining
+    - match:
+        alertname: PredictionDriftDetected
+      receiver: 'retrain-webhook'
+      continue: true
+      
+    # Critical drift - trigger retraining and notify
+    - match:
+        severity: critical
+      receiver: 'critical-webhook'
+      
+    # Default route (if no matches above)
+    - match:
+        severity: warning
+      receiver: 'default-receiver'
+
+receivers:
+  - name: 'retrain-webhook'
+    webhook_configs:
+      - url: 'http://retrain-service:8080/retrain'  # Changed from retrain-trigger to retrain-service
+        send_resolved: false
+        
+  - name: 'critical-webhook'
+    webhook_configs:
+      - url: 'http://retrain-service:8080/retrain'  # Changed from retrain-trigger to retrain-service
+        send_resolved: false
+      - url: 'http://github-webhook:8080/trigger'
+        send_resolved: false
+        
+  - name: 'default-receiver'
+    webhook_configs:
+      - url: 'http://grafana:3000/api/webhooks/alerting'
+        send_resolved: false
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname']

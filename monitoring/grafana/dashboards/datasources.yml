@@ -6,4 +6,8 @@ datasources:
     access: proxy
     url: http://prometheus:9090
     isDefault: true
-    editable: true
+
+alerting:
+  alertmanagers:
+    - type: prometheus
+      host: alertmanager:9093
