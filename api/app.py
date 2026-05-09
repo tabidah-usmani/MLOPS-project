@@ -1,7 +1,6 @@
 import os
 import time
 import joblib
-import sys
 from collections import deque
 from flask import Flask, request, jsonify
 from flask_cors import CORS
