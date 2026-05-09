@@ -22,8 +22,8 @@ def train(data_path: str = "dataset/cleaned.csv", model_type: str = "logistic"):
     Returns (accuracy, f1, pipeline)
     """
     df = pd.read_csv(data_path)
-    X  = df['clean_text']
-    y  = df['label']
+    X = df['clean_text']
+    y = df['label']
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
@@ -35,13 +35,13 @@ def train(data_path: str = "dataset/cleaned.csv", model_type: str = "logistic"):
     with mlflow.start_run(run_name=f"{model_type}_run"):
 
         # ── Parameters ────────────────────────────
-        mlflow.log_param("model_type",     model_type)
-        mlflow.log_param("test_size",      0.2)
-        mlflow.log_param("max_features",   10000)
-        mlflow.log_param("ngram_range",    "(1,2)")
-        mlflow.log_param("sublinear_tf",   True)
-        mlflow.log_param("train_samples",  len(X_train))
-        mlflow.log_param("test_samples",   len(X_test))
+        mlflow.log_param("model_type", model_type)
+        mlflow.log_param("test_size", 0.2)
+        mlflow.log_param("max_features", 10000)
+        mlflow.log_param("ngram_range", "(1,2)")
+        mlflow.log_param("sublinear_tf", True)
+        mlflow.log_param("train_samples", len(X_train))
+        mlflow.log_param("test_samples", len(X_test))
 
         # ── Improved TF-IDF ───────────────────────
         # sublinear_tf=True  → better for short text (log scaling)
@@ -86,7 +86,7 @@ def train(data_path: str = "dataset/cleaned.csv", model_type: str = "logistic"):
         # ── Build Pipeline ────────────────────────
         pipeline = Pipeline([
             ('tfidf', vectorizer),
-            ('clf',   classifier)
+            ('clf', classifier)
         ])
 
         # ── Train ─────────────────────────────────
@@ -94,17 +94,17 @@ def train(data_path: str = "dataset/cleaned.csv", model_type: str = "logistic"):
         pipeline.fit(X_train, y_train)
 
         # ── Evaluate ──────────────────────────────
-        y_pred    = pipeline.predict(X_test)
-        accuracy  = accuracy_score(y_test, y_pred)
-        f1        = f1_score(y_test, y_pred)
+        y_pred = pipeline.predict(X_test)
+        accuracy = accuracy_score(y_test, y_pred)
+        f1 = f1_score(y_test, y_pred)
         precision = precision_score(y_test, y_pred)
-        recall    = recall_score(y_test, y_pred)
+        recall = recall_score(y_test, y_pred)
 
         # ── Log Metrics ───────────────────────────
-        mlflow.log_metric("accuracy",  accuracy)
-        mlflow.log_metric("f1_score",  f1)
+        mlflow.log_metric("accuracy", accuracy)
+        mlflow.log_metric("f1_score", f1)
         mlflow.log_metric("precision", precision)
-        mlflow.log_metric("recall",    recall)
+        mlflow.log_metric("recall", recall)
 
         print(f"  Accuracy:  {accuracy:.4f}")
         print(f"  F1 Score:  {f1:.4f}")
@@ -153,7 +153,7 @@ if __name__ == "__main__":
 
     # ── Auto-Select Best Model by F1 ──────────────────────────
     best_name = max(results, key=lambda k: results[k]["f1"])
-    best      = results[best_name]
+    best = results[best_name]
 
     print("\n" + "=" * 50)
     print(f"Best model: {best_name} (F1={best['f1']:.4f})")
@@ -161,4 +161,4 @@ if __name__ == "__main__":
     # ── Save Best Model for API ────────────────────────────────
     os.makedirs("models", exist_ok=True)
     joblib.dump(best["pipeline"], "models/model.pkl")
-    print(f"Best model saved to models/model.pkl")
+    print("Best model saved to models/model.pkl")

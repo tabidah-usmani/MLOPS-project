@@ -7,6 +7,7 @@ from nltk.corpus import stopwords
 nltk.download('stopwords', quiet=True)
 STOPWORDS = set(stopwords.words('english'))
 
+
 def clean_text(text: str) -> str:
     if not isinstance(text, str):
         return ""
@@ -17,6 +18,7 @@ def clean_text(text: str) -> str:
     tokens = text.split()
     tokens = [t for t in tokens if t not in STOPWORDS and len(t) > 2]
     return ' '.join(tokens)
+
 
 def load_and_clean(filepath: str) -> pd.DataFrame:
     df = pd.read_csv(filepath)
@@ -32,6 +34,7 @@ def load_and_clean(filepath: str) -> pd.DataFrame:
     print(f"After cleaning: {len(df)} rows")
     print(f"Label distribution:\n{df['label'].value_counts()}")
     return df[['clean_text', 'label']]
+
 
 if __name__ == "__main__":
     df = load_and_clean("dataset/WELFake_Dataset.csv")
