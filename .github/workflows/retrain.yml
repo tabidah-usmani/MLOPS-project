@@ -1,0 +1,183 @@
+name: Drift-Triggered Retrain
+
+# ── Triggers ────────────────────────────────────────────────────────────────
+on:
+  # 1. Grafana webhook calls GitHub API to fire this
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Trigger reason'
+        default: 'drift_detected'
+      fake_ratio:
+        description: 'FAKE ratio at alert time'
+        default: '0.0'
+      real_ratio:
+        description: 'REAL ratio at alert time'
+        default: '0.0'
+
+  # 2. Can also run on a schedule (nightly safety net)
+  schedule:
+    - cron: '0 2 * * *'   # 2 AM UTC every night
+
+jobs:
+
+  # ── Job 1: Retrain ─────────────────────────────────────────────────────────
+  retrain:
+    name: Retrain model
+    runs-on: ubuntu-latest
+    outputs:
+      best_model: ${{ steps.train.outputs.best_model }}
+      best_f1:    ${{ steps.train.outputs.best_f1 }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download NLTK data
+        run: python -c "import nltk; nltk.download('stopwords'); nltk.download('punkt')"
+
+      - name: Log trigger context
+        run: |
+          echo "Triggered by : ${{ github.event.inputs.reason || 'schedule' }}"
+          echo "FAKE ratio   : ${{ github.event.inputs.fake_ratio }}"
+          echo "REAL ratio   : ${{ github.event.inputs.real_ratio }}"
+          echo "Run number   : ${{ github.run_number }}"
+
+      # Dataset is not in the repo (50 MB). Two options:
+      #   Option A (recommended): store it as a GitHub secret URL or S3 path
+      #   Option B: store a smaller sample in the repo for CI
+      # Uncomment whichever applies:
+      #
+      # Option A — download from S3 / Google Drive:
+      # - name: Download dataset
+      #   run: |
+      #     mkdir -p dataset
+      #     curl -L "${{ secrets.DATASET_URL }}" -o dataset/WELFake_Dataset.csv
+      #
+      # Option B — dataset already checked into repo under dataset/:
+      # (nothing to do)
+
+      - name: Preprocess data
+        run: python src/preprocess.py
+
+      - name: Train all models + pick best
+        id: train
+        run: |
+          python src/train.py 2>&1 | tee train_log.txt
+
+          BEST_MODEL=$(grep "Best model:" train_log.txt | awk '{print $3}')
+          BEST_F1=$(grep "Best model:" train_log.txt | grep -oP 'F1=\K[0-9.]+')
+
+          echo "best_model=$BEST_MODEL" >> $GITHUB_OUTPUT
+          echo "best_f1=$BEST_F1"       >> $GITHUB_OUTPUT
+          echo "Best: $BEST_MODEL  F1=$BEST_F1"
+
+      - name: Upload new model
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrained-model
+          path: models/model.pkl
+          retention-days: 7
+
+      - name: Upload train log
+        uses: actions/upload-artifact@v4
+        with:
+          name: train-log
+          path: train_log.txt
+
+  # ── Job 2: Quality gate ────────────────────────────────────────────────────
+  quality-gate:
+    name: Quality gate (F1 ≥ 0.95)
+    runs-on: ubuntu-latest
+    needs: retrain
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Download NLTK data
+        run: python -c "import nltk; nltk.download('stopwords'); nltk.download('punkt')"
+
+      - name: Download retrained model
+        uses: actions/download-artifact@v4
+        with:
+          name: retrained-model
+          path: models/
+
+      - name: F1 threshold check
+        run: |
+          python -c "
+          import sys
+          best_f1 = float('${{ needs.retrain.outputs.best_f1 }}')
+          min_f1  = 0.95
+          print(f'New model F1 : {best_f1:.4f}')
+          print(f'Minimum F1   : {min_f1:.4f}')
+          if best_f1 < min_f1:
+              print('QUALITY GATE FAILED — aborting redeploy')
+              sys.exit(1)
+          print('Quality gate passed.')
+          "
+
+      - name: Run existing tests against new model
+        run: pytest tests/ -v
+
+  # ── Job 3: Build + push Docker image ──────────────────────────────────────
+  build-and-push:
+    name: Build and push Docker image
+    runs-on: ubuntu-latest
+    needs: [retrain, quality-gate]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download retrained model
+        uses: actions/download-artifact@v4
+        with:
+          name: retrained-model
+          path: models/
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Prepare Dockerfile
+        run: cp DockerFile Dockerfile
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/fakenews-api:latest
+            ${{ secrets.DOCKER_USERNAME }}/fakenews-api:retrain-${{ github.run_number }}
+
+      - name: Summary
+        run: |
+          echo "## Retrain complete" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Best model | ${{ needs.retrain.outputs.best_model }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| F1 score   | ${{ needs.retrain.outputs.best_f1 }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image tag  | retrain-${{ github.run_number }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Triggered  | ${{ github.event.inputs.reason || 'schedule' }} |" >> $GITHUB_STEP_SUMMARY
