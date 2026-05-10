@@ -51,20 +51,15 @@ jobs:
           echo "REAL ratio   : ${{ github.event.inputs.real_ratio }}"
           echo "Run number   : ${{ github.run_number }}"
 
-      # Dataset is not in the repo (50 MB). Two options:
-      #   Option A (recommended): store it as a GitHub secret URL or S3 path
-      #   Option B: store a smaller sample in the repo for CI
-      # Uncomment whichever applies:
-      #
-      # Option A — download from S3 / Google Drive:
-      # - name: Download dataset
-      #   run: |
-      #     mkdir -p dataset
-      #     curl -L "${{ secrets.DATASET_URL }}" -o dataset/WELFake_Dataset.csv
-      #
-      # Option B — dataset already checked into repo under dataset/:
-      # (nothing to do)
-
+      - name: Download dataset from Kaggle
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+        run: |
+          pip install kaggle -q
+          mkdir -p dataset
+          kaggle datasets download -d saurabhshahane/fake-news-classification -p dataset --unzip
+          ls dataset/
       - name: Preprocess data
         run: python src/preprocess.py
 

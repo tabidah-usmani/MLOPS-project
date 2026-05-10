@@ -2,34 +2,27 @@ groups:
   - name: drift_alerts
     interval: 30s
     rules:
-      # Alert when fake news ratio exceeds threshold
+
       - alert: PredictionDriftDetected
-        expr: fake_news_fake_ratio > 0.70
-        for: 2m  # Wait 2 minutes to avoid flapping
+        expr: fake_news_drift_detected == 1
+        for: 2m
         labels:
           severity: warning
           component: ml-pipeline
         annotations:
           summary: "Prediction drift detected in fake news model"
-          description: |
-            Fake news ratio has been {{ $value | humanizePercentage }} 
-            for the last {{ $for }}. Model may need retraining.
-          action: "retrain"
-          
-      # Critical alert when drift persists
+          description: "Drift detected. Real ratio is {{ $value }}. Model may need retraining."
+
       - alert: PersistentPredictionDrift
-        expr: fake_news_fake_ratio > 0.75
+        expr: fake_news_real_ratio > 0.75
         for: 10m
         labels:
           severity: critical
           component: ml-pipeline
         annotations:
           summary: "Persistent model drift requiring immediate action"
-          description: |
-            Model has been detecting >75% fake news for 10+ minutes.
-            Automatic retraining will be triggered.
-          
-      # Alert when real news ratio drops significantly
+          description: "Real ratio has been {{ $value }} for over 10 minutes. Retraining triggered."
+
       - alert: RealNewsDropoff
         expr: fake_news_real_ratio < 0.20
         for: 5m
@@ -37,4 +30,4 @@ groups:
           severity: warning
         annotations:
           summary: "Unusual drop in REAL news predictions"
-          description: "REAL news ratio is at {{ $value | humanizePercentage }}"
+          description: "REAL news ratio is {{ $value }}"
