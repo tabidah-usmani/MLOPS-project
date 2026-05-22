@@ -21,7 +21,6 @@
 - [Monitoring and Alerting](#monitoring-and-alerting)
 - [Drift Detection and Auto-Retraining](#drift-detection-and-auto-retraining)
 - [Testing](#testing)
-- [Troubleshooting](#troubleshooting)
 - [Project Structure](#project-structure)
 
 ---
