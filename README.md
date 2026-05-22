@@ -1,147 +1,498 @@
-# Fake News Detection (MLOps Project)
+# 🔍 Fake News Detection System — MLOps Pipeline
 
-This repository implements an **end-to-end MLOps pipeline** for fake news detection:
+> An end-to-end production-ready MLOps pipeline for fake news detection with
+> automated retraining, drift monitoring, and full observability.
 
-- **Training**: TF-IDF + classical ML classifiers, logged to **MLflow**
-- **Serving**: **Flask** REST API with drift detection + Prometheus metrics
-- **Monitoring**: **Prometheus + Grafana + Alertmanager**
-- **Retraining**: GitHub Actions workflow triggered by drift alerts (and nightly)
-
----
-
-## Project Structure
-
-- `src/`
-  - `preprocess.py` — text cleaning + dataset preprocessing
-  - `train.py` — model training, MLflow logging, model selection, saving to `models/model.pkl`
-- `api/`
-  - `app.py` — Flask API
-    - `POST /predict` performs cleaning → inference → drift check
-    - `/metrics` exposes Prometheus metrics
-    - `/drift` and `/reset` support drift monitoring
-- `models/`
-  - `model.pkl` — the saved scikit-learn pipeline used by the API
-- `dataset/`
-  - `cleaned.csv` — expected training dataset with columns `clean_text` and `label`
-- `monitoring/`
-  - Prometheus and Alertmanager configuration
-  - Grafana datasource configuration
-- `.github/workflows/`
-  - `mlops.yml` — lint + tests + Docker build
-  - `retrain.yml` — drift-triggered retraining + quality gate + redeploy build
+[![CI/CD](https://github.com/tabidah-usmani/MLOPS-project/actions/workflows/mlops.yml/badge.svg)](https://github.com/tabidah-usmani/MLOPS-project/actions)
+![Python](https://img.shields.io/badge/Python-3.11-blue)
+![MLflow](https://img.shields.io/badge/MLflow-3.11.1-orange)
+![Docker](https://img.shields.io/badge/Docker-Containerized-blue)
+![Track](https://img.shields.io/badge/Track-II%20Technical%20Research-green)
 
 ---
 
-## Data Format
+## 📋 Table of Contents
 
-Training expects a CSV with:
-
-- `clean_text`: preprocessed text
-- `label`: integer class (`0` = FAKE, `1` = REAL)
-
-`src/preprocess.py` can generate `dataset/cleaned.csv` from a WELFake-style dataset.
-
----
-
-## Model Training
-
-Entry point: `src/train.py`
-
-High-level steps:
-
-1. Load `dataset/cleaned.csv`
-2. Split into train/test (stratified)
-3. Build pipeline:
-   - `TfidfVectorizer` with word n-grams
-   - classifier chosen from:
-     - Logistic Regression
-     - Random Forest
-     - LinearSVC wrapped with `CalibratedClassifierCV` (to support `predict_proba`)
-4. Train and evaluate (Accuracy, F1, Precision, Recall)
-5. Select the best model by **F1**
-6. Save best pipeline to `models/model.pkl`
-7. Log runs/metrics to **MLflow**
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Detailed Setup](#detailed-setup)
+- [API Documentation](#api-documentation)
+- [Monitoring and Alerting](#monitoring-and-alerting)
+- [Drift Detection and Auto-Retraining](#drift-detection-and-auto-retraining)
+- [Testing](#testing)
+- [Troubleshooting](#troubleshooting)
+- [Project Structure](#project-structure)
 
 ---
 
-## Steps to Run the Project (Recommended)
+## ✨ Features
 
-### 1) Preprocess + Train
+| Feature | Description |
+|---|---|
+| **ML Pipeline** | TF-IDF + classical ML classifiers (Logistic Regression, Random Forest, LinearSVC) |
+| **REST API** | Flask-based inference service with built-in drift detection |
+| **Monitoring** | Prometheus metrics + Grafana dashboards + Alertmanager |
+| **Auto-Retraining** | Drift-triggered retraining with quality gates (F1 ≥ 0.95) |
+| **Experiment Tracking** | MLflow for model versioning and run tracking |
+| **Containerized** | Docker Compose for easy local development |
+| **CI/CD** | GitHub Actions for linting, testing, building, and deployment |
+
+---
+
+## ✅ Prerequisites
+
+- Docker & Docker Compose (v2.0+)
+- Python 3.11 (for local development)
+- Git (for version control)
+- 8GB+ RAM recommended
+
+---
+
+## ⚡ Quick Start
 
 ```bash
+# 1. Clone repository
+git clone https://github.com/tabidah-usmani/MLOPS-project.git
+cd MLOPS-project
+
+# 2. Train initial model
 python src/preprocess.py
 python src/train.py
-```
 
-This produces `dataset/cleaned.csv` and then `models/model.pkl`.
+# 3. Launch all services
+docker compose -f docker/docker-compose.yml --project-directory . up --build
 
-### 2) Start API + Monitoring stack (Docker Compose)
-
-```bash
-docker compose up --build
+# 4. Test API
+curl http://localhost:5000/health
 ```
 
 ---
 
-## Verify the API
+## 📖 Detailed Setup
 
-- Health check:
-  - `http://localhost:5000/health`
+### Step 1 — Environment Setup
 
-- Prediction:
-  - `POST http://localhost:5000/predict`
+```bash
+python -m venv venv
 
-- Prometheus metrics:
-  - `http://localhost:5000/metrics`
+# Windows
+venv\Scripts\activate
 
-Example request:
+# Mac/Linux
+source venv/bin/activate
+
+pip install -r requirements.txt
+python -c "import nltk; nltk.download('stopwords')"
+```
+
+### Step 2 — Dataset Preparation
+
+Place dataset at `dataset/cleaned.csv` with this format:
+
+```
+clean_text,label
+"preprocessed news article text",0
+"another preprocessed article",1
+```
+
+> Label: `0` = FAKE, `1` = REAL
+
+### Step 3 — Model Training
+
+```bash
+# Train both models
+python src/train.py
+
+# View MLflow experiments
+mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5001
+```
+
+Open MLflow at `http://localhost:5001`
+
+### Step 4 — Start All Services
+
+```bash
+# Foreground (see logs)
+docker compose -f docker/docker-compose.yml --project-directory . up
+
+# Background (silent)
+docker compose -f docker/docker-compose.yml --project-directory . up -d
+
+# View logs
+docker compose -f docker/docker-compose.yml --project-directory . logs -f
+
+# Stop everything
+docker compose -f docker/docker-compose.yml --project-directory . down
+```
+
+---
+
+## 🌐 API Documentation
+
+**Base URL:** `http://localhost:5000`
+
+### Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/health` | Health check |
+| `POST` | `/predict` | News classification |
+| `GET` | `/drift` | Drift detection status |
+| `POST` | `/reset` | Reset drift window |
+| `GET` | `/metrics` | Prometheus metrics |
+
+### Prediction Example
+
+**Request:**
 
 ```bash
 curl -X POST http://localhost:5000/predict \
   -H "Content-Type: application/json" \
-  -d '{"text":"Breaking: Scientists discover revolutionary cure."}'
+  -d '{"text": "Breaking: Scientists discover revolutionary cure."}'
 ```
 
+**Response (success):**
+
+```json
+{
+  "label": "REAL",
+  "confidence": 0.9876,
+  "latency_ms": 45.23,
+  "word_count": 18,
+  "text_preview": "Breaking: Scientists discover...",
+  "drift_detected": false
+}
+```
+
+**Response (text too short):**
+
+```json
+{
+  "warning": "Text too short for reliable prediction",
+  "word_count": 5,
+  "minimum_recommended": 30,
+  "tip": "Send at least 30 words for accurate results"
+}
+```
+
+> ⚠️ Send at least **30 words** for accurate predictions. The model was trained on full news articles.
+
 ---
 
-## Docker (Local) - Ports
+## 📈 Monitoring and Alerting
 
-- API: `http://localhost:5000`
-- Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3000`
-- Alertmanager: `http://localhost:9093`
+### Access Dashboards
+
+| Service | URL | Credentials |
+|---|---|---|
+| Prometheus | http://localhost:9090 | No auth |
+| Grafana | http://localhost:3000 | admin / admin123 |
+| Alertmanager | http://localhost:9093 | No auth |
+| MLflow | http://localhost:5001 | No auth |
+
+### Key Prometheus Queries (PromQL)
+
+```promql
+# Request rate
+rate(fake_news_requests_total[5m])
+
+# Prediction latency (95th percentile)
+histogram_quantile(0.95, rate(fake_news_request_latency_seconds_bucket[5m]))
+
+# Average latency
+rate(fake_news_request_latency_seconds_sum[5m]) /
+rate(fake_news_request_latency_seconds_count[5m]) * 1000
+
+# Drift status
+fake_news_drift_detected
+
+# Label distribution
+fake_news_fake_ratio
+fake_news_real_ratio
+
+# Total predictions by label
+fake_news_predictions_total
+
+# API health
+up{job="fake-news-api"}
+```
+
+### Grafana Dashboard Panels
+
+| Panel | Query | Description |
+|---|---|---|
+| Total Predictions | `fake_news_predictions_total` | FAKE vs REAL count |
+| Avg Latency | rate sum/count * 1000 | Response time in ms |
+| P95 Latency | histogram_quantile 0.95 | Worst case latency |
+| Request Rate | rate requests total | Requests per second |
+| Drift Alert | `fake_news_drift_detected` | 1=drift, 0=normal |
+| FAKE Ratio | `fake_news_fake_ratio` | Distribution trend |
 
 ---
 
-## Running Tests
+## 🔄 Drift Detection and Auto-Retraining
+
+### How Drift Detection Works
+
+| Parameter | Value |
+|---|---|
+| Window Size | Last 50 predictions |
+| Threshold | 70% majority for any label |
+| Drift Trigger | FAKE ratio > 70% OR REAL ratio > 70% |
+| Alert Delay | Fires after 2 minutes of persistent drift |
+
+### Auto-Retraining Flow
+
+```
+User sends predictions → API
+         │
+         ▼
+Drift detector checks ratio
+         │
+         ▼
+Prometheus scrapes metrics (every 10s)
+         │
+         ▼
+Alert fires when drift persists (2 min)
+         │
+         ▼
+Alertmanager sends webhook to retrain-service
+         │
+         ▼
+Retrain service triggers retraining
+         │
+         ▼
+New model trained + validated (F1 ≥ 0.95)
+         │
+         ▼
+Model saved → API restarted
+```
+
+### Manual Commands
 
 ```bash
-pytest -v
+# Check drift status
+curl http://localhost:5000/drift
+
+# Reset drift window
+curl -X POST http://localhost:5000/reset
+
+# Manually trigger retraining
+curl -X POST http://localhost:8080/retrain
+
+# Check retrain status
+curl http://localhost:8080/retrain/status
 ```
 
-API tests are skipped if `models/model.pkl` is missing.
+### Test Drift Detection
+
+```bash
+# Linux/Mac
+for i in {1..50}; do
+  curl -X POST http://localhost:5000/predict \
+    -H "Content-Type: application/json" \
+    -d "{\"text\": \"Long fake news article text here with more than thirty words test $i\"}"
+  sleep 0.1
+done
+```
+
+```powershell
+# Windows PowerShell
+for ($i = 1; $i -le 50; $i++) {
+    Invoke-WebRequest -Uri "http://localhost:5000/predict" `
+        -Method POST `
+        -ContentType "application/json" `
+        -Body "{`"text`": `"Long fake news article text here with more than thirty words test $i`"}" `
+        -UseBasicParsing | Out-Null
+    Write-Host "Sent request $i"
+    Start-Sleep -Milliseconds 100
+}
+```
+
+### Prometheus Alert Rules
+
+| Alert | Condition | Severity |
+|---|---|---|
+| `PredictionDriftDetected` | FAKE ratio drops below threshold | Warning — FIRING |
+| `PersistentPredictionDrift` | Drift persists over 10 min window | Critical — PENDING |
+| `RealNewsDropoff` | REAL prediction volume drops | Warning — INACTIVE |
 
 ---
 
-## CI/CD
+## 🧪 Testing
 
-### `mlops.yml`
-- runs lint (`flake8`)
-- runs tests (`pytest tests/test_model.py -v`)
-- builds Docker image for API
+```bash
+# Run all tests
+pytest -v
 
-### `retrain.yml`
-- can run from a drift-triggered webhook (Grafana) and also nightly
-- downloads dataset via Kaggle
-- preprocesses data
-- trains all candidate models and selects best by F1
-- enforces a **quality gate** (F1 ≥ 0.95)
-- if passed, builds/pushes a retrained Docker image
+# Run specific test file
+pytest tests/test_model.py -v
+
+# Run with coverage report
+pytest --cov=. --cov-report=html
+```
+
+**Expected output:**
+
+```
+tests/test_model.py::test_clean_text_basic           PASSED
+tests/test_model.py::test_clean_text_removes_urls    PASSED
+tests/test_model.py::test_clean_text_handles_empty   PASSED
+tests/test_model.py::test_clean_text_handles_none    PASSED
+tests/test_model.py::test_clean_text_removes_numbers PASSED
+5 passed in 1.23s
+```
 
 ---
 
-## Notes
+## 🔧 Troubleshooting
 
-- The API uses `nltk` stopwords; `DockerFile` downloads required NLTK resources at build time.
-- Drift detection is based on predicted labels only (no ground-truth stream).
+### Common Issues and Solutions
 
+| Issue | Solution |
+|---|---|
+| `Model not found` | Run `python src/train.py` first |
+| `Port already in use` | Change ports in `docker/docker-compose.yml` |
+| `Alertmanager restart loop` | Validate `monitoring/alertmanager.yml` syntax |
+| `Drift not detecting` | Send 50+ predictions with 30+ words each |
+| `MLflow connection failed` | Run `docker ps` and check mlflow container |
+| `Cannot connect to Docker` | Open Docker Desktop first |
+| `ModuleNotFoundError` | Activate venv — `venv\Scripts\activate` |
+| Container exits instantly | Rebuild — `docker build -t fakenews-api -f DockerFile .` |
+
+### Debug Commands
+
+```bash
+# View all container logs
+docker compose -f docker/docker-compose.yml --project-directory . logs --tail=100
+
+# Follow specific service logs
+docker compose -f docker/docker-compose.yml --project-directory . logs -f api
+
+# Execute inside container
+docker exec -it fakenews-api bash
+
+# Full cleanup
+docker compose -f docker/docker-compose.yml --project-directory . down -v
+
+# Remove all unused Docker data
+docker system prune -a
+```
+
+---
+
+## 📁 Project Structure
+
+```
+MLOPS-project/
+│
+├── .github/
+│   └── workflows/
+│       ├── mlops.yml              # CI/CD pipeline (test, build, lint)
+│       └── retrain.yml            # Auto-retraining workflow
+│
+├── api/
+│   └── app.py                     # Flask API with drift detection
+│
+├── src/
+│   ├── preprocess.py              # Text cleaning pipeline
+│   └── train.py                   # Model training and selection
+│
+├── tests/
+│   └── test_model.py              # Unit tests
+│
+├── models/
+│   └── model.pkl                  # Trained pipeline
+│
+├── dataset/
+│   └── cleaned.csv                # Preprocessed training data
+│
+├── monitoring/
+│   ├── prometheus.yml             # Prometheus scrape configuration
+│   ├── alerts.yml                 # Alerting rules (drift detection)
+│   ├── alertmanager.yml           # Alertmanager routing config
+│   └── grafana/
+│       └── datasources.yml        # Grafana Prometheus datasource
+│
+├── docker/
+│   └── docker-compose.yml         # Multi-container orchestration
+│
+├── DockerFile                     # API container build definition
+├── Dockerfile.retrain             # Retrain service build definition
+├── retrain_webhook.py             # Retraining trigger service
+├── requirements.txt               # Python dependencies
+└── README.md                      # This file
+```
+
+---
+
+## 📊 Experimental Results
+
+### Model Performance
+
+| Model | Accuracy | F1-Score | Precision | Recall |
+|---|---|---|---|---|
+| Logistic Regression | 95.28% | 95.43% | 95.12% | 95.74% |
+| **Random Forest** ✅ | **95.91%** | **96.05%** | **95.25%** | **96.87%** |
+
+### Reproducibility (3 MLflow-tracked runs)
+
+| Run | Accuracy | F1 | Precision | Recall |
+|---|---|---|---|---|
+| Run 1 | 0.953 | 0.954 | 0.951 | 0.957 |
+| Run 2 | 0.953 | 0.954 | 0.951 | 0.957 |
+| Run 3 | 0.953 | 0.954 | 0.951 | 0.957 |
+| **Variance** | **0.000** | **0.000** | **0.000** | **0.000** |
+
+### Deployment Efficiency
+
+| Method | Time | Manual Steps |
+|---|---|---|
+| Manual first setup | ~900 sec | 12+ |
+| Manual subsequent | ~300 sec | 8+ |
+| Docker compose up | ~15 sec | 1 |
+| **CI/CD Pipeline** | **78 sec** | **0** |
+
+> 92% reduction in deployment time via CI/CD automation
+
+### API Latency (N=50 requests)
+
+| Metric | Value |
+|---|---|
+| Average | 31–53 ms |
+| Minimum | 12 ms |
+| P95 | 48–49 ms |
+| Cold start | 677 ms (one-time) |
+
+---
+
+## 📦 Dataset
+
+**WELFake Dataset** — 72,134 labeled news articles
+
+**Download:** [Kaggle — WELFake](https://www.kaggle.com/datasets/saurabhshahane/fake-news-classification)
+
+> ⚠️ Dataset not included in repo. Download `WELFake_Dataset.csv` and place at `dataset/WELFake_Dataset.csv`
+
+---
+
+## 👩‍💻 Author
+
+**Tabidah Usmani**
+Department of Computer Science
+FAST National University of Computer and Emerging Sciences
+Islamabad, Pakistan
+📧 i222070@nu.edu.pk
+
+---
+
+## 📝 Acknowledgments
+
+- WELFake dataset for training data
+- Open-source MLOps community
+- Kreuzberger et al. (2024) — base paper for MLOps framework
+
+---
+
+⭐ Star this repository if you find it useful!
