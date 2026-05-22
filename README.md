@@ -269,46 +269,6 @@ New model trained + validated (F1 ≥ 0.95)
 Model saved → API restarted
 ```
 
-### Manual Commands
-
-```bash
-# Check drift status
-curl http://localhost:5000/drift
-
-# Reset drift window
-curl -X POST http://localhost:5000/reset
-
-# Manually trigger retraining
-curl -X POST http://localhost:8080/retrain
-
-# Check retrain status
-curl http://localhost:8080/retrain/status
-```
-
-### Test Drift Detection
-
-```bash
-# Linux/Mac
-for i in {1..50}; do
-  curl -X POST http://localhost:5000/predict \
-    -H "Content-Type: application/json" \
-    -d "{\"text\": \"Long fake news article text here with more than thirty words test $i\"}"
-  sleep 0.1
-done
-```
-
-```powershell
-# Windows PowerShell
-for ($i = 1; $i -le 50; $i++) {
-    Invoke-WebRequest -Uri "http://localhost:5000/predict" `
-        -Method POST `
-        -ContentType "application/json" `
-        -Body "{`"text`": `"Long fake news article text here with more than thirty words test $i`"}" `
-        -UseBasicParsing | Out-Null
-    Write-Host "Sent request $i"
-    Start-Sleep -Milliseconds 100
-}
-```
 
 ### Prometheus Alert Rules
 
@@ -346,41 +306,6 @@ tests/test_model.py::test_clean_text_removes_numbers PASSED
 
 ---
 
-## 🔧 Troubleshooting
-
-### Common Issues and Solutions
-
-| Issue | Solution |
-|---|---|
-| `Model not found` | Run `python src/train.py` first |
-| `Port already in use` | Change ports in `docker/docker-compose.yml` |
-| `Alertmanager restart loop` | Validate `monitoring/alertmanager.yml` syntax |
-| `Drift not detecting` | Send 50+ predictions with 30+ words each |
-| `MLflow connection failed` | Run `docker ps` and check mlflow container |
-| `Cannot connect to Docker` | Open Docker Desktop first |
-| `ModuleNotFoundError` | Activate venv — `venv\Scripts\activate` |
-| Container exits instantly | Rebuild — `docker build -t fakenews-api -f DockerFile .` |
-
-### Debug Commands
-
-```bash
-# View all container logs
-docker compose -f docker/docker-compose.yml --project-directory . logs --tail=100
-
-# Follow specific service logs
-docker compose -f docker/docker-compose.yml --project-directory . logs -f api
-
-# Execute inside container
-docker exec -it fakenews-api bash
-
-# Full cleanup
-docker compose -f docker/docker-compose.yml --project-directory . down -v
-
-# Remove all unused Docker data
-docker system prune -a
-```
-
----
 
 ## 📁 Project Structure
 
@@ -477,22 +402,4 @@ MLOPS-project/
 
 ---
 
-## 👩‍💻 Author
 
-**Tabidah Usmani**
-Department of Computer Science
-FAST National University of Computer and Emerging Sciences
-Islamabad, Pakistan
-📧 i222070@nu.edu.pk
-
----
-
-## 📝 Acknowledgments
-
-- WELFake dataset for training data
-- Open-source MLOps community
-- Kreuzberger et al. (2024) — base paper for MLOps framework
-
----
-
-⭐ Star this repository if you find it useful!
