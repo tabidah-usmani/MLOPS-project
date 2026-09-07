@@ -404,6 +404,8 @@ MLOPS-project/
 
 ---
 
-## 📄 License
+## Credits
 
-*(Add a license here — e.g., MIT — if you'd like others to reuse, modify, or build on this project.)*
+- **Tabidah Usmani**
+- **Amna Javaid**
+- **Sara Zahid**
