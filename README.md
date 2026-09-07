@@ -22,6 +22,9 @@
 - [Drift Detection and Auto-Retraining](#drift-detection-and-auto-retraining)
 - [Testing](#testing)
 - [Project Structure](#project-structure)
+- [Experimental Results](#-experimental-results)
+- [Dataset](#-dataset)
+- [License](#-license)
 
 ---
 
@@ -401,4 +404,6 @@ MLOPS-project/
 
 ---
 
+## 📄 License
 
+*(Add a license here — e.g., MIT — if you'd like others to reuse, modify, or build on this project.)*
